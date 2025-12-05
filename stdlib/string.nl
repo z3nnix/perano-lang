@@ -1,0 +1,28 @@
+package string
+
+// String utilities library
+// Rust-style syntax
+
+// Get the length of a string
+pub fn len(s: string) -> int {
+    // Implemented in compiler
+    return 0
+}
+
+// Compare two strings
+// Returns: 0 if equal, -1 if s1 < s2, 1 if s1 > s2
+pub fn compare(s1: string, s2: string) -> int {
+    // Implemented in compiler
+    return 0
+}
+
+// Concatenate two strings
+pub fn concat(s1: string, s2: string) -> string {
+    // Implemented in compiler
+    return ""
+}
+
+// Check if string is empty
+pub fn is_empty(s: string) -> int {
+    return len(s) == 0
+}

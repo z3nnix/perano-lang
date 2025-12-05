@@ -1,0 +1,234 @@
+package math
+
+// Mathematical functions library for Novaria
+
+// Maximum of two numbers
+pub fn Max(a int, b int) int {
+    if a > b {
+        return a
+    }
+    return b
+}
+
+// Minimum of two numbers
+pub fn Min(a int, b int) int {
+    if a < b {
+        return a
+    }
+    return b
+}
+
+// Power function (a^b)
+pub fn Pow(base int, exp int) int {
+    if exp == 0 {
+        return 1
+    }
+    
+    var result int = 1
+    var i int = 0
+    
+    for i < exp {
+        result = result * base
+        i = i + 1
+    }
+    
+    return result
+}
+
+// Square root (integer approximation using Newton's method)
+// Note: Only works with positive integers
+pub fn Sqrt(n int) int {
+    if n == 0 {
+        return 0
+    }
+    if n == 1 {
+        return 1
+    }
+    
+    var x int = n / 2
+    var prev int = 0
+    var count int = 0
+    
+    for x != prev {
+        if count > 20 {
+            return x
+        }
+        prev = x
+        x = (x + n / x) / 2
+        count = count + 1
+    }
+    
+    return x
+}
+
+// Greatest Common Divisor (Euclidean algorithm)
+// Note: Only works with positive integers
+pub fn GCD(a int, b int) int {
+    var x int = a
+    var y int = b
+    
+    for y != 0 {
+        var temp int = y
+        y = x % y
+        x = temp
+    }
+    
+    return x
+}
+
+// Least Common Multiple
+// Note: Only works with positive integers
+// LIMITATION: This function calls GCD internally, which may not work in current compiler
+// Workaround: Call GCD separately and calculate LCM manually: (a * b) / GCD(a, b)
+pub fn LCM(a int, b int) int {
+    if a == 0 {
+        return 0
+    }
+    if b == 0 {
+        return 0
+    }
+    
+    // Inline GCD to avoid module-to-module call issue
+    var x int = a
+    var y int = b
+    
+    for y != 0 {
+        var temp int = y
+        y = x % y
+        x = temp
+    }
+    
+    var gcd int = x
+    var prod int = a * b
+    var result int = prod / gcd
+    return result
+}
+
+// Factorial
+pub fn Fact(n int) int {
+    if n <= 1 {
+        return 1
+    }
+    
+    var result int = 1
+    var i int = 2
+    
+    for i <= n {
+        result = result * i
+        i = i + 1
+    }
+    
+    return result
+}
+
+// Check if number is even
+pub fn IsEven(n int) int {
+    if n % 2 == 0 {
+        return 1
+    }
+    return 0
+}
+
+// Check if number is odd
+pub fn IsOdd(n int) int {
+    if n % 2 != 0 {
+        return 1
+    }
+    return 0
+}
+
+// Sign function (0 or 1, negative values not supported)
+pub fn Sign(x int) int {
+    if x > 0 {
+        return 1
+    }
+    return 0
+}
+
+// Clamp value between min and max
+pub fn Clamp(value int, min int, max int) int {
+    if value < min {
+        return min
+    }
+    if value > max {
+        return max
+    }
+    return value
+}
+
+// Sum of numbers from 1 to n
+pub fn SumRange(n int) int {
+    return (n * (n + 1)) / 2
+}
+
+// Check if number is prime (simple trial division)
+pub fn IsPrime(n int) int {
+    if n <= 1 {
+        return 0
+    }
+    if n <= 3 {
+        return 1
+    }
+    if n % 2 == 0 {
+        return 0
+    }
+    if n % 3 == 0 {
+        return 0
+    }
+    
+    // Inline sqrt calculation to avoid module-to-module call
+    var limit int = n / 2
+    if n > 1 {
+        var x int = n / 2
+        var prev int = 0
+        var count int = 0
+        
+        for x != prev {
+            if count > 20 {
+                limit = x
+                break
+            }
+            prev = x
+            x = (x + n / x) / 2
+            count = count + 1
+        }
+        limit = x
+    }
+    
+    var i int = 5
+    
+    for i <= limit {
+        if n % i == 0 {
+            return 0
+        }
+        if n % (i + 2) == 0 {
+            return 0
+        }
+        i = i + 6
+    }
+    
+    return 1
+}
+
+// Fibonacci number (n-th)
+pub fn Fib(n int) int {
+    if n == 0 {
+        return 0
+    }
+    if n == 1 {
+        return 1
+    }
+    
+    var a int = 0
+    var b int = 1
+    var i int = 2
+    
+    for i <= n {
+        var temp int = a + b
+        a = b
+        b = temp
+        i = i + 1
+    }
+    
+    return b
+}
