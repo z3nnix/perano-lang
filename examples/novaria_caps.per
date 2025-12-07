@@ -1,0 +1,26 @@
+package main
+
+import "novaria"
+import "stdio"
+
+fn main() {
+    stdio.PrintlnStr("NovariaOS Capabilities Test")
+    
+    // Get capability constants
+    var cap_read int
+    var cap_write int
+    var cap_all int
+    
+    cap_read = novaria.CAP_FS_READ()
+    cap_write = novaria.CAP_FS_WRITE()
+    cap_all = novaria.CAP_ALL()
+    
+    stdio.PrintlnStr("Capability values:")
+    stdio.Println(cap_read)
+    stdio.Println(cap_write)
+    stdio.Println(cap_all)
+    
+    // Exit cleanly
+    novaria.Exit(0)
+    return 0
+}

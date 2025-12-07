@@ -1,0 +1,28 @@
+package main
+
+import "novaria"
+import "stdio"
+
+fn main() {
+    stdio.PrintlnStr("NovariaOS File System Test")
+    
+    // Create a test file
+    var filename int
+    var content int
+    var result int
+    
+    // Note: In real usage, these would be string pointers
+    // For now, this demonstrates the API structure
+    
+    stdio.PrintlnStr("Creating file...")
+    result = novaria.FileCreate(filename, content, 100)
+    
+    if result == 0 {
+        stdio.PrintlnStr("File created successfully!")
+    } else {
+        stdio.PrintlnStr("Failed to create file")
+    }
+    
+    novaria.Exit(0)
+    return 0
+}
