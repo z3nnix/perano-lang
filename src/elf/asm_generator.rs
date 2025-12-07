@@ -305,6 +305,18 @@ impl AsmGenerator {
                     self.output.push_str(&format!("    movq    %rax, {}(%rbp)\n", offset));
                 }
             }
+            Statement::PointerAssignment { target, value } => {
+                // Generate value first
+                self.generate_expression(value);
+                self.output.push_str("    pushq   %rax\n");
+                
+                // Generate target address
+                self.generate_expression(target);
+                
+                // Pop value and store through pointer
+                self.output.push_str("    popq    %rcx\n");
+                self.output.push_str("    movq    %rcx, (%rax)\n");
+            }
             Statement::ArrayAssignment { name, index, value } => {
                 self.generate_expression(value);
                 self.output.push_str("    pushq   %rax\n");

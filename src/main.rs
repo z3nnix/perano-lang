@@ -88,9 +88,9 @@ fn main() {
         }
         "elf" => {
             if source_file.ends_with(".per") {
-                source_file[..source_file.len()-3].to_string()
-            } else if source_file.ends_with(".go") {
-                source_file[..source_file.len()-3].to_string()
+                source_file[..source_file.len()-4].to_string()
+            } else if source_file.ends_with(".nl") {
+                source_file[..source_file.len()-4].to_string()
             } else {
                 source_file.to_string()
             }

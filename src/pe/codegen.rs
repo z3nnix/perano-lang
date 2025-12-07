@@ -127,6 +127,18 @@ impl<'a> CodeGen<'a> {
                     self.emit_i32(offset);
                 }
             }
+            Statement::PointerAssignment { target, value } => {
+                // Generate value first
+                self.generate_expression(value);
+                self.emit(&[0x50]); // push rax (save value)
+                
+                // Generate target address
+                self.generate_expression(target);
+                
+                // Pop value and store through pointer
+                self.emit(&[0x59]); // pop rcx (restore value)
+                self.emit(&[0x48, 0x89, 0x08]); // mov [rax], rcx
+            }
             Statement::Return(expr) => {
                 if let Some(e) = expr {
                     self.generate_expression(e);

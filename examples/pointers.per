@@ -1,0 +1,17 @@
+package main
+
+import "stdio"
+
+fn main() {
+    var x: i64 = 42
+    var ptr: i64 = &x
+    var value: i64 = *ptr
+    
+    stdio.Println(x)
+    stdio.Println(value)
+    
+    *ptr = 100
+    stdio.Println(x)
+    
+    return 0
+}

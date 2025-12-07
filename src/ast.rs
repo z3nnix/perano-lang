@@ -61,6 +61,10 @@ pub enum Statement {
         index: Expression,
         value: Expression,
     },
+    PointerAssignment {
+        target: Expression,
+        value: Expression,
+    },
     If {
         condition: Expression,
         then_body: Vec<Statement>,

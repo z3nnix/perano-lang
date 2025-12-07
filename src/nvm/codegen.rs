@@ -1,10 +1,7 @@
 use crate::ast::*;
 use std::collections::HashMap;
-const HALT: u8 = 0x00;
-const NOP: u8 = 0x01;
 const PUSH32: u8 = 0x02;
 const POP: u8 = 0x04;
-const DUP: u8 = 0x05;
 const SWAP: u8 = 0x06;
 
 const ADD: u8 = 0x10;
@@ -13,7 +10,6 @@ const MUL: u8 = 0x12;
 const DIV: u8 = 0x13;
 const MOD: u8 = 0x14;
 
-const CMP: u8 = 0x20;
 const EQ: u8 = 0x21;
 const NEQ: u8 = 0x22;
 const GT: u8 = 0x23;
@@ -31,10 +27,7 @@ const LOAD_ABS: u8 = 0x44;
 const STORE_ABS: u8 = 0x45;
 
 const SYSCALL: u8 = 0x50;
-const BREAK: u8 = 0x51;
 
-
-// NovariaOS Syscall Numbers
 const SYSCALL_EXIT: u8 = 0x00;
 const SYSCALL_EXEC: u8 = 0x01;
 const SYSCALL_READ: u8 = 0x02;
@@ -48,9 +41,7 @@ const SYSCALL_MSG_RECEIVE: u8 = 0x0A;
 const SYSCALL_PORT_IN_BYTE: u8 = 0x0B;
 const SYSCALL_PORT_OUT_BYTE: u8 = 0x0C;
 const SYSCALL_PRINT: u8 = 0x0D;
-
-// VGA text mode buffer address
-const VGA_BUFFER: u32 = 0xB8000;
+const SYSCALL_GET_LOCAL_ADDR: u8 = 0x0F;
 
 pub struct NVMCodeGen {
     bytecode: Vec<u8>,
@@ -92,7 +83,11 @@ impl NVMCodeGen {
         }
 
         
-        for (_module_name, module) in &program.modules {
+        for (module_name, module) in &program.modules {
+            // Skip generating stubs for stdio module - they're handled inline
+            if module_name == "stdio" {
+                continue;
+            }
             for func in &module.functions {
                 if func.is_exported {
                     let full_name = format!("{}_{}", module.name, func.name);
@@ -101,10 +96,10 @@ impl NVMCodeGen {
             }
         }
 
-        // Generate helper function for printing integers
-        self.generate_print_int_helper();
+        if program.modules.contains_key("stdio") {
+            self.generate_print_int_helper();
+        }
 
-        
         self.patch_labels();
 
         self.bytecode.clone()
@@ -269,6 +264,18 @@ impl NVMCodeGen {
                 self.emit_byte(POP);
             }
 
+            Statement::PointerAssignment { target, value } => {
+                // Generate target address first
+                self.generate_expression(target, program);
+                
+                // Generate value
+                self.generate_expression(value, program);
+                
+                // Store value through pointer
+                // Stack: [address, value] - correct order for STORE_ABS
+                self.emit_byte(STORE_ABS);  // Store value at address
+            }
+
             _ => {}
         }
     }
@@ -379,10 +386,9 @@ impl NVMCodeGen {
                             }
                         }
                         "Print" => {
-                            // Print integer - convert to string and print each digit
+                            // Print integer - call helper function
                             if !args.is_empty() {
                                 self.generate_expression(&args[0], program);
-                                // Call print_int helper
                                 self.emit_byte(CALL32);
                                 self.emit_label_ref("__print_int");
                                 // Push dummy value since this is an expression that returns void
@@ -435,14 +441,14 @@ impl NVMCodeGen {
                                     self.emit_push32(content.len() as i32);
                                     
                                     // Push content pointer (we'll write string inline)
-                                    let content_label = self.generate_label("str_content");
-                                    self.emit_push32(0); // Placeholder for address
-                                    let content_patch_pos = self.bytecode.len() - 4;
+                                    let _content_label = self.generate_label("str_content");
+                                    self.emit_push32(0);
+                                    let _content_patch_pos = self.bytecode.len() - 4;
                                     
                                     // Push filename pointer
-                                    let filename_label = self.generate_label("str_filename");
-                                    self.emit_push32(0); // Placeholder for address
-                                    let filename_patch_pos = self.bytecode.len() - 4;
+                                    let _filename_label = self.generate_label("str_filename");
+                                    self.emit_push32(0);
+                                    let _filename_patch_pos = self.bytecode.len() - 4;
                                     
                                     // Call SYS_CREATE
                                     self.emit_byte(SYSCALL);
@@ -468,8 +474,8 @@ impl NVMCodeGen {
                                     self.emit_byte(0); // Null terminator
                                     
                                     // Patch addresses
-                                    let filename_addr = (filename_pos + 0x100000) as i32; // Add base offset
-                                    let content_addr = (content_pos + 0x100000) as i32;
+                                    let _filename_addr = (filename_pos + 0x100000) as i32;
+                                    let _content_addr = (content_pos + 0x100000) as i32;
                                     
                                     // TODO: This won't work correctly - need proper data section
                                     // For now, return error
@@ -582,8 +588,26 @@ impl NVMCodeGen {
                 self.emit_label_ref(&func_label);
             }
 
+            Expression::AddressOf { operand } => {
+                if let Expression::Identifier(name) = operand.as_ref() {
+                    if let Some(&local_index) = self.local_vars.get(name) {
+                        self.emit_push32(local_index as i32);
+                        self.emit_byte(SYSCALL);
+                        self.emit_byte(SYSCALL_GET_LOCAL_ADDR);
+                    } else {
+                        panic!("Variable not found: {}", name);
+                    }
+                } else {
+                    panic!("AddressOf only supports identifiers");
+                }
+            }
+
+            Expression::Deref { operand } => {
+                self.generate_expression(operand, program);
+                self.emit_byte(LOAD_ABS);
+            }
+
             _ => {
-                // Unsupported expressions
                 self.emit_push32(0);
             }
         }
@@ -632,13 +656,22 @@ impl NVMCodeGen {
 
     fn generate_print_int_helper(&mut self) {
         // Helper function to print an integer
-        // Input: integer on stack
-        // Output: prints the integer character by character
+        // Stack layout on entry: [... , param, return_address] (top)
+        // Uses iterative approach - builds number in reverse using division/modulo powers
+        // Uses locals 250-255 to avoid conflicts with user code
         self.add_label("__print_int");
         
-        // Load the value from stack (it's already on top)
+        // Save return address to local 255
+        self.emit_byte(STORE);
+        self.emit_byte(255);
+        
+        // Now param is on top, store it in local 250
+        self.emit_byte(STORE);
+        self.emit_byte(250);
+        
         // Check if negative
-        self.emit_byte(DUP);
+        self.emit_byte(LOAD);
+        self.emit_byte(250);
         self.emit_push32(0);
         self.emit_byte(LT);
         
@@ -646,124 +679,131 @@ impl NVMCodeGen {
         self.emit_byte(JZ32);
         self.emit_label_ref(&not_negative_label);
         
-        // If negative, print '-' and negate the value
+        // If negative, print '-' and negate
         self.emit_push32('-' as i32);
         self.emit_byte(SYSCALL);
         self.emit_byte(SYSCALL_PRINT);
         
-        // Negate the value
+        self.emit_byte(LOAD);
+        self.emit_byte(250);
         self.emit_push32(0);
         self.emit_byte(SWAP);
         self.emit_byte(SUB);
+        self.emit_byte(STORE);
+        self.emit_byte(250);
         
         self.add_label(&not_negative_label);
         
-        // Convert number to digits and print
-        // Using iterative approach with a buffer on stack
-        
-        // Special case: if value is 0, just print '0'
-        self.emit_byte(DUP);
+        // Special case for 0
+        self.emit_byte(LOAD);
+        self.emit_byte(250);
         self.emit_push32(0);
         self.emit_byte(EQ);
         
-        let not_zero_label = self.generate_label("not_zero");
+        let not_zero = self.generate_label("not_zero");
         self.emit_byte(JZ32);
-        self.emit_label_ref(&not_zero_label);
+        self.emit_label_ref(&not_zero);
         
-        // Print '0' and return
-        self.emit_byte(POP); // Remove the duplicate 0
         self.emit_push32('0' as i32);
         self.emit_byte(SYSCALL);
         self.emit_byte(SYSCALL_PRINT);
+        
+        // Restore return address before RET
+        self.emit_byte(LOAD);
+        self.emit_byte(255);
         self.emit_byte(RET);
         
-        self.add_label(&not_zero_label);
+        self.add_label(&not_zero);
         
-        // Digit extraction loop
-        // We'll build digits in reverse, then print them
-        self.emit_push32(0); // Digit count
+        // Find the highest power of 10 <= value
+        // Store divisor in local 251
+        self.emit_push32(1);
+        self.emit_byte(STORE);
+        self.emit_byte(251);
         
-        let digit_loop_label = self.generate_label("digit_loop");
-        let digit_loop_end_label = self.generate_label("digit_loop_end");
+        let find_power_loop = self.generate_label("find_power");
+        let find_power_done = self.generate_label("find_power_done");
         
-        self.add_label(&digit_loop_label);
+        self.add_label(&find_power_loop);
         
-        // Check if value > 0
-        self.emit_byte(SWAP);
-        self.emit_byte(DUP);
-        self.emit_push32(0);
+        // Check if divisor * 10 > value
+        self.emit_byte(LOAD);
+        self.emit_byte(251);
+        self.emit_push32(10);
+        self.emit_byte(MUL);
+        self.emit_byte(LOAD);
+        self.emit_byte(250);
         self.emit_byte(GT);
         
-        self.emit_byte(JZ32);
-        self.emit_label_ref(&digit_loop_end_label);
+        self.emit_byte(JNZ32);
+        self.emit_label_ref(&find_power_done);
         
-        // Extract digit: value % 10
-        self.emit_byte(DUP);
+        // divisor *= 10
+        self.emit_byte(LOAD);
+        self.emit_byte(251);
         self.emit_push32(10);
-        self.emit_byte(MOD);
-        
-        // Convert to ASCII: digit + '0'
-        self.emit_push32('0' as i32);
-        self.emit_byte(ADD);
-        
-        // Swap to get: count, digit, value
-        self.emit_byte(SWAP);
-        self.emit_byte(SWAP);
-        
-        // Divide value by 10
-        self.emit_push32(10);
-        self.emit_byte(DIV);
-        
-        // Swap to restore: value, digit, count
-        self.emit_byte(SWAP);
-        self.emit_byte(SWAP);
-        
-        // Increment count
-        self.emit_push32(1);
-        self.emit_byte(ADD);
+        self.emit_byte(MUL);
+        self.emit_byte(STORE);
+        self.emit_byte(251);
         
         self.emit_byte(JMP32);
-        self.emit_label_ref(&digit_loop_label);
+        self.emit_label_ref(&find_power_loop);
         
-        self.add_label(&digit_loop_end_label);
+        self.add_label(&find_power_done);
         
-        // Pop the value (should be 0 now)
-        self.emit_byte(SWAP);
-        self.emit_byte(POP);
+        // Print digits
+        let print_loop = self.generate_label("print_digit_loop");
+        let print_done = self.generate_label("print_done");
         
-        // Now print digits (they're on stack in correct order)
-        let print_loop_label = self.generate_label("print_loop");
-        let print_loop_end_label = self.generate_label("print_loop_end");
+        self.add_label(&print_loop);
         
-        self.add_label(&print_loop_label);
-        
-        // Check if count > 0
-        self.emit_byte(DUP);
+        // Check if divisor > 0
+        self.emit_byte(LOAD);
+        self.emit_byte(251);
         self.emit_push32(0);
         self.emit_byte(GT);
         
         self.emit_byte(JZ32);
-        self.emit_label_ref(&print_loop_end_label);
+        self.emit_label_ref(&print_done);
         
-        // Decrement count
-        self.emit_push32(1);
-        self.emit_byte(SUB);
-        
-        // Swap to get digit
-        self.emit_byte(SWAP);
+        // digit = value / divisor
+        self.emit_byte(LOAD);
+        self.emit_byte(250);
+        self.emit_byte(LOAD);
+        self.emit_byte(251);
+        self.emit_byte(DIV);
         
         // Print digit
+        self.emit_push32('0' as i32);
+        self.emit_byte(ADD);
         self.emit_byte(SYSCALL);
         self.emit_byte(SYSCALL_PRINT);
         
+        // value = value % divisor
+        self.emit_byte(LOAD);
+        self.emit_byte(250);
+        self.emit_byte(LOAD);
+        self.emit_byte(251);
+        self.emit_byte(MOD);
+        self.emit_byte(STORE);
+        self.emit_byte(250);
+        
+        // divisor /= 10
+        self.emit_byte(LOAD);
+        self.emit_byte(251);
+        self.emit_push32(10);
+        self.emit_byte(DIV);
+        self.emit_byte(STORE);
+        self.emit_byte(251);
+        
         self.emit_byte(JMP32);
-        self.emit_label_ref(&print_loop_label);
+        self.emit_label_ref(&print_loop);
         
-        self.add_label(&print_loop_end_label);
+        self.add_label(&print_done);
         
-        // Clean up count
-        self.emit_byte(POP);
-        
+        // Restore return address before RET
+        self.emit_byte(LOAD);
+        self.emit_byte(255);
         self.emit_byte(RET);
     }
 }

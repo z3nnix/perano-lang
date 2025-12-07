@@ -210,6 +210,24 @@ impl Parser {
             Token::If => self.parse_if(),
             Token::For => self.parse_for(),
             Token::Return => self.parse_return(),
+            Token::Star => {
+                // Check if this is a pointer assignment (*ptr = value)
+                let next_pos = self.position + 1;
+                let mut check_pos = next_pos;
+                // Skip identifier tokens to find assignment
+                while check_pos < self.tokens.len() {
+                    match &self.tokens[check_pos] {
+                        Token::Assign => {
+                            return self.parse_pointer_assignment();
+                        }
+                        Token::Identifier(_) | Token::LeftParen | Token::RightParen => {
+                            check_pos += 1;
+                        }
+                        _ => break,
+                    }
+                }
+                Ok(Statement::Expression(self.parse_expression()))
+            }
             Token::Identifier(_) => {
                 let next_pos = self.position + 1;
                 if next_pos < self.tokens.len() && (matches!(self.tokens[next_pos], Token::Assign) || matches!(self.tokens[next_pos], Token::LBracket)) {
@@ -302,6 +320,16 @@ impl Parser {
         let value = self.parse_expression();
 
         Ok(Statement::Assignment { name, value })
+    }
+
+    fn parse_pointer_assignment(&mut self) -> crate::error::Result<Statement> {
+        // Parse *ptr = value
+        self.expect(Token::Star)?;
+        let target = self.parse_primary();
+        self.expect(Token::Assign)?;
+        let value = self.parse_expression();
+
+        Ok(Statement::PointerAssignment { target, value })
     }
 
     fn parse_if(&mut self) -> crate::error::Result<Statement> {

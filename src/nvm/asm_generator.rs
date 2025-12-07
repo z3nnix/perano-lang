@@ -3,11 +3,12 @@ use std::collections::HashMap;
 
 pub struct NVMAssemblyGenerator {
     output: String,
+    #[allow(dead_code)]
     labels: HashMap<String, String>,
     label_counter: u32,
     local_vars: HashMap<String, u8>,
     next_local: u8,
-    loop_stack: Vec<(String, String)>, // (break_label, continue_label)
+    loop_stack: Vec<(String, String)>,
     current_function: String,
 }
 
@@ -42,7 +43,11 @@ impl NVMAssemblyGenerator {
         }
 
         
-        for (_module_name, module) in &program.modules {
+        for (module_name, module) in &program.modules {
+            // Skip generating stubs for stdio module - they're handled inline
+            if module_name == "stdio" {
+                continue;
+            }
             for func in &module.functions {
                 if func.is_exported {
                     let full_name = format!("{}_{}", module.name, func.name);
@@ -204,9 +209,9 @@ impl NVMAssemblyGenerator {
             }
 
             Statement::Return(value) => {
-                if let Some(expr) = value {
+                if let Some(_expr) = value {
                     // self.output.push_str("    ; return\n");
-                    // self.generate_expression(expr, program);
+                    // self.generate_expression(_expr, program);
                 }
                 // self.output.push_str("    ret\n");
             }
@@ -214,6 +219,13 @@ impl NVMAssemblyGenerator {
             Statement::Expression(expr) => {
                 self.generate_expression(expr, program);
                 // self.output.push_str("    pop  ; discard result\n");
+            }
+
+            Statement::PointerAssignment { target, value } => {
+                self.output.push_str("    ; *ptr = value\n");
+                self.generate_expression(target, program);
+                self.generate_expression(value, program);
+                self.output.push_str("    store_abs\n");
             }
 
             _ => {
@@ -296,21 +308,27 @@ impl NVMAssemblyGenerator {
             }
 
             Expression::ModuleCall { module, function, args } => {
-                if module == "stdio" && (function == "PrintStr" || function == "PrintlnStr") {
-                    if !args.is_empty() {
-                        if let Expression::String(s) = &args[0] {
-                            self.emit_printstr(s, function == "PrintlnStr");
-                            return;
+                if module == "stdio" {
+                    if function == "PrintStr" || function == "PrintlnStr" {
+                        if !args.is_empty() {
+                            if let Expression::String(s) = &args[0] {
+                                self.emit_printstr(s, function == "PrintlnStr");
+                                return;
+                            }
                         }
+                    } else if function == "Print" || function == "Println" {
+                        // Print integer - generate inline syscall
+                        self.output.push_str(&format!("    ; call {}.{}\n", module, function));
+                        if !args.is_empty() {
+                            self.generate_expression(&args[0], program);
+                            self.output.push_str("    syscall print_int\n");
+                            if function == "Println" {
+                                self.output.push_str("    push 10\n"); // newline character
+                                self.output.push_str("    syscall print\n");
+                            }
+                        }
+                        return;
                     }
-
-                    // Fallback: generate a call to the stdio implementation
-                    self.output.push_str(&format!("    ; call {}.{}\n", module, function));
-                    for arg in args.iter().rev() {
-                        self.generate_expression(arg, program);
-                    }
-                    self.output.push_str(&format!("    call32 func_{}_{}\n", module, function));
-                    return;
                 }
 
                 self.output.push_str(&format!("    ; call {}.{}\n", module, function));
@@ -318,6 +336,26 @@ impl NVMAssemblyGenerator {
                     self.generate_expression(arg, program);
                 }
                 self.output.push_str(&format!("    call32 func_{}_{}\n", module, function));
+            }
+
+            Expression::AddressOf { operand } => {
+                if let Expression::Identifier(name) = operand.as_ref() {
+                    if let Some(&local_index) = self.local_vars.get(name) {
+                        self.output.push_str(&format!("    load_addr {}  ; &{}\n", local_index, name));
+                    } else {
+                        self.output.push_str(&format!("    ; ERROR: Variable not found: {}\n", name));
+                        self.output.push_str("    push 0\n");
+                    }
+                } else {
+                    self.output.push_str("    ; ERROR: AddressOf only supports identifiers\n");
+                    self.output.push_str("    push 0\n");
+                }
+            }
+
+            Expression::Deref { operand } => {
+                self.output.push_str("    ; *ptr\n");
+                self.generate_expression(operand, program);
+                self.output.push_str("    load_ptr\n");
             }
 
             _ => {
