@@ -277,7 +277,7 @@ impl NVMAssemblyGenerator {
                         }
                         AsmPart::Variable(var_name) => {
                             if let Some(&local_index) = self.local_vars.get(var_name) {
-                                self.output.push_str(&format!("    load {}  ; ${}\n", local_index, var_name));
+                                self.output.push_str(&format!("    load {}\n", local_index));
                             } else {
                                 self.output.push_str(&format!("    ; ERROR: Unknown variable: {}\n", var_name));
                             }

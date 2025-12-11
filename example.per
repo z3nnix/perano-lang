@@ -1,0 +1,14 @@
+package main
+
+import "stdio"
+
+fn ret(exitcode: int) {
+    asm {
+        push $(exitcode)
+        syscall exit
+    }
+}
+
+fn main() {
+    ret(42)
+}

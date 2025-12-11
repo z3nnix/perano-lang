@@ -435,15 +435,16 @@ impl Parser {
             while !matches!(self.current_token(), Token::RightBrace) {
                 match self.current_token() {
                     Token::Dollar => {
-                        if !current_line.is_empty() {
-                            parts.push(AsmPart::Literal(current_line.trim().to_string()));
-                            current_line.clear();
-                        }
+                        let line_before_var = current_line.trim().to_string();
+                        current_line.clear();
                         
                         self.advance();
                         if matches!(self.current_token(), Token::LeftParen) {
                             self.advance();
                             if let Token::Identifier(var_name) = self.current_token() {
+                                if !line_before_var.is_empty() && line_before_var != "push" {
+                                    parts.push(AsmPart::Literal(line_before_var));
+                                }
                                 parts.push(AsmPart::Variable(var_name.clone()));
                                 self.advance();
                                 self.expect(Token::RightParen)?;

@@ -312,9 +312,10 @@ impl NVMCodeGen {
                             if let Some(string_value) = self.compile_time_strings.get(var_name) {
                                 asm_text.push_str(string_value);
                                 asm_text.push('\n');
+                            } else if let Some(&local_index) = self.local_vars.get(var_name) {
+                                asm_text.push_str(&format!("load {}\n", local_index));
                             } else {
-                                eprintln!("Warning: Variable interpolation $({}) requires compile-time string constant", var_name);
-                                eprintln!("Hint: The variable must be initialized with a string literal like: var {} = \"push 42\"", var_name);
+                                eprintln!("Warning: Variable '{}' not found in asm block", var_name);
                             }
                         }
                     }
