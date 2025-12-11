@@ -26,4 +26,8 @@ target/*
 # Temporary test files
 examples/tmp_*/*
 examples/build/** */
+run.sh
+
+# Compiled files
 build/**
+*.bin

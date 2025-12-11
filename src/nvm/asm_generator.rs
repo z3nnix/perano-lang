@@ -316,7 +316,7 @@ impl NVMAssemblyGenerator {
                         }
                         TemplateStringPart::Expression { expr, format: _ } => {
                             self.generate_expression(expr, program);
-                            self.output.push_str("    call32 __print_int_vga\n");
+                            self.output.push_str("    call __print_int_vga\n");
                         }
                     }
                 }
@@ -379,10 +379,17 @@ impl NVMAssemblyGenerator {
 
             Expression::Call { function, args } => {
                 self.output.push_str(&format!("    ; call {}\n", function));
+                
                 for arg in args.iter().rev() {
                     self.generate_expression(arg, program);
                 }
-                self.output.push_str(&format!("    call32 fn_{}\n", function));
+                
+                for (i, _) in args.iter().enumerate() {
+                    let param_index = i as u8;
+                    self.output.push_str(&format!("    store {}\n", param_index));
+                }
+                
+                self.output.push_str(&format!("    call fn_{}\n", function));
             }
 
             Expression::ModuleCall { module, function, args } => {
@@ -404,7 +411,7 @@ impl NVMAssemblyGenerator {
                                 }
                             } else {
                                 self.generate_expression(&args[0], program);
-                                self.output.push_str("    call32 __print_int_vga\n");
+                                self.output.push_str("    call __print_int_vga\n");
                                 if function == "Println" {
                                     self.emit_vga_newline();
                                 }
@@ -418,7 +425,7 @@ impl NVMAssemblyGenerator {
                 for arg in args.iter().rev() {
                     self.generate_expression(arg, program);
                 }
-                self.output.push_str(&format!("    call32 fn_{}_{}\n", module, function));
+                self.output.push_str(&format!("    call fn_{}_{}\n", module, function));
             }
 
             Expression::AddressOf { operand } => {
