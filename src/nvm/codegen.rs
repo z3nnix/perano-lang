@@ -29,19 +29,20 @@ const STORE_ABS: u8 = 0x45;
 const SYSCALL: u8 = 0x50;
 
 const SYSCALL_EXIT: u8 = 0x00;
-const SYSCALL_PRINT: u8 = 0x0D;
+const SYSCALL_PRINT: u8 = 0x0F;
 const SYSCALL_EXEC: u8 = 0x01;
-const SYSCALL_READ: u8 = 0x02;
-const SYSCALL_WRITE: u8 = 0x03;
-const SYSCALL_CREATE: u8 = 0x04;
-const SYSCALL_DELETE: u8 = 0x05;
-const SYSCALL_CAP_CHECK: u8 = 0x06;
-const SYSCALL_CAP_SPAWN: u8 = 0x07;
-const SYSCALL_MSG_SEND: u8 = 0x09;
-const SYSCALL_MSG_RECEIVE: u8 = 0x0A;
-const SYSCALL_PORT_IN_BYTE: u8 = 0x0B;
-const SYSCALL_PORT_OUT_BYTE: u8 = 0x0C;
-const SYSCALL_GET_LOCAL_ADDR: u8 = 0x0F;
+const SYSCALL_OPEN: u8 = 0x02;
+const SYSCALL_READ: u8 = 0x03;
+const SYSCALL_WRITE: u8 = 0x04;
+const SYSCALL_CREATE: u8 = 0x05;
+const SYSCALL_DELETE: u8 = 0x06;
+const SYSCALL_CAP_CHECK: u8 = 0x07;
+const SYSCALL_CAP_SPAWN: u8 = 0x08;
+const SYSCALL_MSG_SEND: u8 = 0x0A;
+const SYSCALL_MSG_RECEIVE: u8 = 0x0B;
+const SYSCALL_PORT_IN_BYTE: u8 = 0x0C;
+const SYSCALL_PORT_OUT_BYTE: u8 = 0x0D;
+const SYSCALL_GET_LOCAL_ADDR: u8 = 0x0E;
 
 pub struct NVMCodeGen {
     bytecode: Vec<u8>,
